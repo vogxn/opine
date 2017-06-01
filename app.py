@@ -1,18 +1,27 @@
-from flask import Flask, redirect, url_for, session, request, jsonify
+from flask import Flask, redirect, url_for, session, request, jsonify, g
 from flask_oauthlib.client import OAuth
-import logging
-
+from werkzeug import security
+from urllib.parse import urlparse
+from slugify import slugify
+from marshmallow import ValidationError
+from comment import CommentSchema
+from models import Installation, database
+from settings import *
+import json
 
 app = Flask(__name__)
-app.debug = True
-app.secret_key = 'development'
+app.debug = DEBUG
+app.secret_key = SECRET_KEY
 oauth = OAuth(app)
+
 
 github = oauth.remote_app(
     'github',
-    consumer_key='Iv1.7ed784ff75a2d6cf',
-    consumer_secret='90dcc676c697eae43536cdd3b8a653b6923f1c42',
-    request_token_params={},
+    consumer_key=CLIENT_ID,
+    consumer_secret=CLIENT_SECRET,
+    request_token_params={
+        'state': lambda: security.gen_salt(10)
+    },
     base_url='https://api.github.com/',
     request_token_url=None,
     access_token_method='POST',
@@ -62,16 +71,60 @@ def authorized():
     return jsonify(me.data)
 
 
+def gh_issue(url, repo, owner):
+    """ finds the issue number given the url, repo and owner """
+    slug = slugify(urlparse(request.url).path)
+    app.logger.info("slugged issue title: %s" % slug)
+
+    # query github search endpoint
+    query = {"q": "%s in:title repo:%s/%s" % (slug, owner, repo)}
+    resp = github.get('search/issues', data=query)
+    app.logger.info("Found %s issues in search" % resp.data.get("total_count"))
+    if resp.data.get("total_count") == 0:
+        return None
+    elif resp.data.get("total_count") == 1:
+        return resp.data.get("items")[0].get("number")
+    return 0
+
+
 @app.route('/comment', methods=['GET'])
 def comment():
-    issue_data = {
-            "title": "a new approach to not giving a shit",
-            "body": "how not to give a shit about the chaos around you?"
-            }
-    resp = github.post('repos/vogxn/vogxn.github.io/issues', data=issue_data,
-                       format='json')
-    app.logger.info(resp)
-    return "Issue posted successfully"
+    if 'github_token' not in session:
+        return redirect(url_for('login'))
+    else:
+        try:
+            repo = 'vogxn.github.io'
+            owner = 'vogxn'
+            comment_json = {'owner': owner,
+                            'repo': repo,
+                            'body': 'This is another comment!'}
+            issue_num = gh_issue(request.url, repo, owner)
+            if issue_num is None:
+                issue_json = {'title': slugify(urlparse(request.url).path)}
+                github.post('repos/%s/%s/issues'.format(owner, repo),
+                            data=issue_json, format='json')
+                app.logger.info("created a new root issue")
+            schema = CommentSchema(strict=True)
+            comment, errors = schema.load(comment_json)
+            comment_endpoint = '/'.join(['repos', comment.owner, comment.repo,
+                                         'issues', str(issue_num), 'comments'])
+            github.post(comment_endpoint, data=comment_json, format='json')
+            app.logger.info("Commenting at: %s" % comment_endpoint)
+            resp = github.get(comment_endpoint)
+            return jsonify(resp.data)
+        except json.JSONDecodeError:
+            return 422
+        except ValidationError as err:
+            return err.messages
+
+
+@app.route('/register', methods=['GET'])
+def register():
+    app.logger.info(request.args)
+    with database.transaction():
+        Installation.create(ghid=request.args['installation_id'],
+                            repo='', owner='')
+    return
 
 
 @github.tokengetter
@@ -79,9 +132,17 @@ def get_github_oauth_token():
     return session.get('github_token')
 
 
+@app.before_request
+def before_request():
+    g.db = database
+    g.db.connect()
+
+
+@app.after_request
+def after_request(response):
+    g.db.close()
+    return response
+
+
 if __name__ == '__main__':
-    logger = logging.getLogger("github.logger")
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    app.logger.addHandler(handler)
     app.run(port=8080)
