@@ -16,8 +16,9 @@ class User(object):
 
 
 class Comment(object):
-    def __init__(self, body, user=None, html_url=None,
+    def __init__(self, title, body, user=None, html_url=None,
                  created_at=datetime.now(), updated_at=datetime.now()):
+        self.title = title
         self.body = body
         self.user = user
         self.html_url = html_url
@@ -45,6 +46,7 @@ class UserSchema(Schema):
 
 
 class CommentSchema(Schema):
+    title = fields.Str(required=True)
     body = fields.Str(required=True)
     html_url = fields.URL()
     created_at = fields.DateTime()
