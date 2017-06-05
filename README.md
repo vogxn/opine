@@ -1,10 +1,38 @@
+Many blogs are written using github pages - so every blog has an associated git
+repository. This project is a [Github App](https://developer.github.com/apps/)
+that provides a [shim](https://en.wikipedia.org/wiki/Shim_(computing)) to post
+comments from such blogs as comments to issues in the associated git
+repository.
+
+
 Design
 ======
 
-Javascript XHR
+When a user goes to a blog and wants to leave a comment, `/login` will redirect
+him to authenticate using his github credentials. 
+
+--
+
 ```
-   https://opine.io/comment {body: 'comment text', installation_id: 1234, shortcode: 'vogxn'}
+HTTP/1.1 POST /login
+Content-Type: application/json; charset=utf-8
+Date: Mon, 05 Jun 2017 11:52:49 GMT
+
+{"owner": <github-handle-of-owner-of-blog>, "repo": <github-repo-for-blog>", "title": "Page Title Of Blog Post"}
 ```
+
+This creates an access token behind the scenes for the session.
+
+In order to comment you have to pass
+
+```
+HTTP/1.1 POST /comment
+Content-Type: application/json; charset=utf-8
+Date: Mon, 05 Jun 2017 11:55:39 GMT
+
+{"title": "Page Title Of Blog Post", "body": "my comment here"}
+```
+
 
 Flow 1:
 ======
