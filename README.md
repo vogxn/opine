@@ -33,6 +33,16 @@ Date: Mon, 05 Jun 2017 11:55:39 GMT
 {"title": "Page Title Of Blog Post", "body": "my comment here"}
 ```
 
+Quickstart
+==========
+
+The server runs on localhost port 8080 with flask. Install requirements and start as follows:
+
+```
+$ pip install -r requirements.txt
+$ python app.py
+```
+
 
 Flow 1:
 ======
