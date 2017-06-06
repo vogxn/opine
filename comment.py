@@ -1,11 +1,12 @@
 from datetime import datetime
-from marshmallow import Schema, fields, post_load
+from marshmallow import Schema, fields, post_load, ValidationError, validates
 
 
 class Admin(object):
-    def __init__(self, login, repo):
+    def __init__(self, login, repo, origin=None):
         self.login = login
         self.repo = repo
+        self.origin = origin
 
 
 class User(object):
@@ -16,7 +17,7 @@ class User(object):
 
 
 class Comment(object):
-    def __init__(self, title, body, user=None, html_url=None,
+    def __init__(self, body, title=None, user=None, html_url=None,
                  created_at=datetime.now(), updated_at=datetime.now()):
         self.title = title
         self.body = body
@@ -29,10 +30,19 @@ class Comment(object):
 class AdminSchema(Schema):
     login = fields.Str(required=True)
     repo = fields.Str(required=True)
+    origin = fields.URL()
 
     @post_load
     def make_admin(self, data):
         return Admin(**data)
+
+    @validates('login')
+    def validate_github_login(self, value):
+        return True
+
+    @validates('repo')
+    def validate_repo(self, value):
+        return True
 
 
 class UserSchema(Schema):
@@ -46,8 +56,8 @@ class UserSchema(Schema):
 
 
 class CommentSchema(Schema):
-    title = fields.Str(required=True)
     body = fields.Str(required=True)
+    title = fields.Str()
     html_url = fields.URL()
     created_at = fields.DateTime()
     updated_at = fields.DateTime()

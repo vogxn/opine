@@ -1,0 +1,15 @@
+<html>
+  <head>
+    <title> Opine.io | Register </title>
+  </head>
+  <body>
+    <form method="POST" action="/register">
+      {{ form.csrf_token }}
+      {{ form.hidden_tag() }} 
+      {{ form.login.label }} {{ form.login(size=80, maxlength=200) }}
+      {{ form.repo.label }} {{ form.repo(size=80, maxlength=200) }}
+      {{ form.origin.label }} {{ form.origin(size=80, maxlength=2000) }}
+      <input type="submit" value="Save">
+    </form>
+  </body>
+</html>

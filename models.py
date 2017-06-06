@@ -30,9 +30,3 @@ class Stats(BaseModel):
     installation = ForeignKeyField(Installation)
     comments = BigIntegerField()
     updated = DateTimeField()
-
-
-class Session(BaseModel):
-    sid = BigIntegerField(unique=True, null=False)
-    active = BooleanField()
-    expiry = DateTimeField()

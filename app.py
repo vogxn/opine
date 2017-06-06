@@ -1,7 +1,8 @@
 import json
 import logging
 
-from flask import Flask, redirect, url_for, session, request
+from flask import Flask, redirect, url_for,\
+    session, request, render_template, abort, jsonify, flash
 from flask_oauthlib.client import OAuth
 from flask_cors import CORS
 from werkzeug import security
@@ -10,6 +11,7 @@ from marshmallow import ValidationError
 from settings import API_URL, CLIENT_ID, CLIENT_SECRET, DEBUG, SECRET_KEY
 from comment import AdminSchema
 from proxy import GithubCommentProxy
+from forms import RegisterForm
 
 if DEBUG:
     logging.basicConfig(level=logging.DEBUG)
@@ -48,17 +50,21 @@ github.pre_request = change_app_header
 def index():
     if 'gh_token' in session:
         if proxy.valid:
-            return proxy.get()
+            return jsonify(proxy.get(title='slug-url-first-comment'))
     return redirect(url_for('login'))
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET'])
 def login():
-    adminschema = AdminSchema()
-    admin = adminschema.load(request.get_json()).data
-    proxy.connect(admin.login, admin.repo, github)
-    assert proxy.valid
-    return github.authorize(callback=url_for('authorized', _external=True))
+    data = {"login": "vogxn", "repo": "vogxn.github.io"}
+    if data:  # request.get_json():
+        adminschema = AdminSchema()
+        admin = adminschema.load(data).data
+        proxy.connect(admin.login, admin.repo, github)
+        assert proxy.valid
+        return github.authorize(callback=url_for('authorized', _external=True))
+    else:
+        abort(422)
 
 
 @app.route('/logout')
@@ -80,7 +86,19 @@ def authorized():
     return redirect(url_for('index'))
 
 
-@app.route('/comment', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    installation_id = request.args.get('installation_id')
+    # display register form
+    rform = RegisterForm()
+    if request.method == "POST" and rform.validate_on_submit():
+        installation = AdminSchema(rform.data)
+        flash("Successfully Registered!")
+        return redirect(url_for('index'))
+    return render_template('register.html', form=rform, ghid=installation_id)
+
+
+@app.route('/comment', methods=['GET'])
 def comment():
     if 'gh_token' not in session:
         return redirect(url_for('login'))

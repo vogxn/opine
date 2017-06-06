@@ -24,7 +24,7 @@ class GithubCommentProxy(object):
 
     def get(self, title):
         """ Get comments on issue with given title """
-        num = self.search_head_comment(title)
+        num = self.search_head(title)
         resp = requests.get("/".join([API_URL, "repos", self.owner, self.repo,
                                       "issues", str(num), "comments"]))
         cs = CommentSchema(many=True)
