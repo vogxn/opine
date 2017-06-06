@@ -64,7 +64,7 @@ def login():
         admin = adminschema.load(data).data
         proxy.connect(admin.login, admin.repo, github)
         assert proxy.valid
-        return github.authorize(callback=url_for('authorized', _external=True))
+        return github.authorize(callback=url_for('authorize', _external=True))
     else:
         abort(422)
 
@@ -76,7 +76,7 @@ def logout():
 
 
 @app.route('/authorize')
-def authorized():
+def authorize():
     resp = github.authorized_response()
     if resp is None or resp.get('access_token') is None:
         return 'Access denied: reason=%s error=%s resp=%s' % (
