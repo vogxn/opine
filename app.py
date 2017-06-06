@@ -2,13 +2,15 @@ import json
 import logging
 
 from flask import Flask, redirect, url_for,\
-    session, request, render_template, abort, jsonify, flash
+    session, request, render_template, abort, jsonify, flash, g
 from flask_oauthlib.client import OAuth
 from flask_cors import CORS
 from werkzeug import security
 from marshmallow import ValidationError
+from datetime import datetime
 
 from settings import API_URL, CLIENT_ID, CLIENT_SECRET, DEBUG, SECRET_KEY
+from models import database, Installation
 from comment import AdminSchema
 from proxy import GithubCommentProxy
 from forms import RegisterForm
@@ -88,14 +90,23 @@ def authorized():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    installation_id = request.args.get('installation_id')
     # display register form
     rform = RegisterForm()
     if request.method == "POST" and rform.validate_on_submit():
-        installation = AdminSchema(rform.data)
+        with database.transaction():
+            Installation.create(ghid=session.get('ghid'),
+                                owner=rform.login.data,
+                                repo=rform.repo.data,
+                                origin=rform.origin.data,
+                                active=True,
+                                created=datetime.now(),
+                                updated=datetime.now())
         flash("Successfully Registered!")
         return redirect(url_for('index'))
-    return render_template('register.html', form=rform, ghid=installation_id)
+    else:
+        installation_id = request.args.get('installation_id')
+        session['ghid'] = installation_id
+        return render_template('register.html', form=rform)
 
 
 @app.route('/comment', methods=['GET'])
@@ -108,7 +119,7 @@ def comment():
             proxy.create(payload)
             return redirect(url_for('index'))
         except json.JSONDecodeError:
-            return 422
+            abort(422)
         except ValidationError as err:
             return err.messages
 
@@ -118,17 +129,17 @@ def get_github_oauth_token():
     return session.get('gh_token')
 
 
-# @app.before_request
-# def before_request():
-#     g.db = database
-#     g.db.connect()
-#
-#
-# @app.after_request
-# def after_request(response):
-#     g.db.close()
-#     return response
-#
+@app.before_request
+def before_request():
+    g.db = database
+    g.db.connect()
+
+
+@app.after_request
+def after_request(response):
+    g.db.close()
+    return response
+
 
 if __name__ == '__main__':
     app.run(port=8080)

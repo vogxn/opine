@@ -17,16 +17,24 @@ class Installation(BaseModel):
     ghid = IntegerField(unique=True, null=False)
     repo = CharField()
     owner = CharField()
+    origin = CharField()
     active = BooleanField()
     created = DateTimeField()
     updated = DateTimeField()
 
     class Meta:
         order_by = ('id', )
-        indexes = (('repo', 'owner'), False)
+        indexes = (
+            (('repo', 'owner', 'origin', 'active'), False),
+        )
 
 
 class Stats(BaseModel):
     installation = ForeignKeyField(Installation)
     comments = BigIntegerField()
     updated = DateTimeField()
+
+
+if __name__ == '__main__':
+    database.connect()
+    database.create_tables([Installation, Stats])
