@@ -2,7 +2,7 @@ import json
 import logging
 
 from flask import Flask, redirect, url_for,\
-    session, request, render_template, abort, jsonify, flash, g
+    session, request, render_template, abort, flash, g
 from flask_oauthlib.client import OAuth
 from flask_cors import CORS
 from werkzeug import security
@@ -52,7 +52,7 @@ github.pre_request = change_app_header
 def index():
     if 'gh_token' in session:
         if proxy.valid:
-            return jsonify(proxy.get(title='slug-url-first-comment'))
+            return render_template('index.html')
     return redirect(url_for('login'))
 
 
@@ -109,7 +109,7 @@ def register():
         return render_template('register.html', form=rform)
 
 
-@app.route('/comment', methods=['GET'])
+@app.route('/comment', methods=['POST'])
 def comment():
     if 'gh_token' not in session:
         return redirect(url_for('login'))

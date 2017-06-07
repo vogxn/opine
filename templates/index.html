@@ -1,0 +1,25 @@
+<!doctype html>
+<html class="no-js" lang="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Opine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/style.css">
+
+    <!-- jquery & Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"> </script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="static/js/opine.js"></script> 
+  </head>
+  <body>
+    <form id="comment-form" method="POST" action="/comment">
+      <textarea id="comment-body" name="body" placeholder="Enter your comment here"></textarea>
+      <button id="comment-submit" type="submit">Submit</button>
+      <a href="/login">Sign in via github</a>
+    </form>
+    <ul class="comments">
+    </ul>
+  </body>
+</html>

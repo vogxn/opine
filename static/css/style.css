@@ -1,0 +1,31 @@
+form {
+  max-width: 300px;
+}
+textarea, input {
+  width: 100%;
+  display: block;
+  margin-bottom: 10px;
+}
+
+textarea {
+  height: 150px;
+}
+
+.comments {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.comment {
+  margin-bottom: 10px;
+}
+
+.author {
+  font-style: italic;
+}
+
+.author:before {
+  content: ' -';
+}
+
