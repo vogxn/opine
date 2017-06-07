@@ -26,7 +26,7 @@ function setupCommentForm() {
       url: form.attr('action'), 
       type: form.attr('method'),
       dataType: 'json',
-      data: JSON.stringify({ body: commentBody })
+      data: JSON.stringify({ body: commentBody }),
     }).done(function () {
       loadComments();
       $('#comment-body').val('');
@@ -45,4 +45,4 @@ function jsonToComment(commentObj) {
 $(document).ready(function() {
   loadComments()
   setupCommentForm()
-};
+});
