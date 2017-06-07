@@ -4,6 +4,22 @@ that provides a [shim](https://en.wikipedia.org/wiki/Shim_(computing)) to post
 comments from such blogs as comments to issues in the associated git
 repository.
 
+Flow
+====
+
+Admin
+-----
+- github user installs opine app from the github marketplace
+- after installation opine.io prompts user to register with - blog url, git repo, github handle
+- this completes the installation
+
+Commenter
+---------
+- commenter signs in via github
+- commenter leaves comment
+- opine.io takes comment, associates it as an issue comment on admin's github pages repo
+- opine.io posts comment text as issue comment body
+
 
 Design
 ======

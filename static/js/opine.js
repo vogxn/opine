@@ -1,5 +1,5 @@
 var endpoints = {
-  getComments: 'https://gist.githubusercontent.com/vogxn/d8b050d0b2e09786a634d95ae1eab6be/raw/0ef116c8ffae125b9190443382955720e8d9d0f2/opine_comment.json'
+  getComments: 'http://localhost:8080/comment?title=slug-url-first-comment'
 };
 
 function loadComments() {
@@ -25,8 +25,9 @@ function setupCommentForm() {
     $.ajax({
       url: form.attr('action'), 
       type: form.attr('method'),
+      contentType: 'application/json; charset=utf8',
       dataType: 'json',
-      data: JSON.stringify({ body: commentBody }),
+      data: JSON.stringify({"title": "slug-url-first-comment", body:commentBody})
     }).done(function () {
       loadComments();
       $('#comment-body').val('');

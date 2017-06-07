@@ -40,6 +40,7 @@ class GithubCommentProxy(object):
         # query github search endpoint
         query = {"q": "%s in:title repo:%s/%s" % (slug, self.owner, self.repo)}
         resp = self.connection.get('search/issues', data=query)
+        assert resp.status == 200
         if resp.data.get("total_count") == 0:
             return None
         elif resp.data.get("total_count") == 1:
@@ -49,8 +50,10 @@ class GithubCommentProxy(object):
 
     def create_head(self, title):
         issue_json = {'title': slugify(title)}
-        self.connection.post('repos/%s/%s/issues'.format(self.owner, self.repo),
-                             data=issue_json, format='json')
+        res = self.connection.post('repos/%s/%s/issues'.format(self.owner,
+                                                               self.repo),
+                                   data=issue_json, format='json')
+        return res.status == 200
 
     def create(self, payload):
         cs = CommentSchema()
@@ -60,9 +63,8 @@ class GithubCommentProxy(object):
             self.create_head_comment(comment.title)
         gh_comments = '/'.join(['repos', self.owner, self.repo, 'issues',
                                 str(issue_num), 'comments'])
-        # TODO: handle post response
-        s_comment = cs.dumps(comment).data
-        self.connection.post(gh_comments, data=s_comment, format='json')
+        res = self.connection.post(gh_comments, data=payload, format='json')
+        return res.status == 200
 
     def update(self):
         raise NotImplementedError

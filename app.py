@@ -2,7 +2,7 @@ import json
 import logging
 
 from flask import Flask, redirect, url_for,\
-    session, request, render_template, abort, flash, g
+    session, request, render_template, abort, flash, g, jsonify
 from flask_oauthlib.client import OAuth
 from flask_cors import CORS
 from werkzeug import security
@@ -109,19 +109,22 @@ def register():
         return render_template('register.html', form=rform)
 
 
-@app.route('/comment', methods=['POST'])
+@app.route('/comment', methods=['GET', 'POST'])
 def comment():
-    if 'gh_token' not in session:
-        return redirect(url_for('login'))
-    else:
-        try:
-            payload = request.get_json()
-            proxy.create(payload)
-            return redirect(url_for('index'))
-        except json.JSONDecodeError:
-            abort(422)
-        except ValidationError as err:
-            return err.messages
+    if request.method == "GET":
+        return jsonify(proxy.get(title=request.args.get('title')))
+    elif request.method == "POST":
+        if 'gh_token' not in session:
+            return redirect(url_for('login'))
+        else:
+            try:
+                payload = request.get_json()
+                proxy.create(payload)
+                return redirect(url_for('index'))
+            except json.JSONDecodeError:
+                abort(422)
+            except ValidationError as err:
+                return err.messages
 
 
 @github.tokengetter
