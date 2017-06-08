@@ -5,13 +5,11 @@ from flask import Flask, redirect, url_for,\
     session, request, render_template, abort, flash, g, jsonify
 from flask_oauthlib.client import OAuth
 from flask_cors import CORS
-from werkzeug import security
 from marshmallow import ValidationError
 from datetime import datetime
 
-from settings import API_URL, CLIENT_ID, CLIENT_SECRET, DEBUG, SECRET_KEY
+from settings import DEBUG, SECRET_KEY
 from models import database, Installation
-from comment import AdminSchema
 from proxy import GithubCommentProxy
 from forms import RegisterForm
 
@@ -23,50 +21,34 @@ app.debug = DEBUG
 app.secret_key = SECRET_KEY
 cors = CORS(app)
 oauth = OAuth(app)
-
-
-proxy = GithubCommentProxy()
-github = oauth.remote_app(
-    'github',
-    consumer_key=CLIENT_ID,
-    consumer_secret=CLIENT_SECRET,
-    request_token_params={
-        'state': lambda: security.gen_salt(10)
-    },
-    base_url=API_URL,
-    request_token_url=None,
-    access_token_method='POST',
-    access_token_url='https://github.com/login/oauth/access_token',
-    authorize_url='https://github.com/login/oauth/authorize'
-)
-
-
-def change_app_header(uri, headers, body):
-    headers["Accept"] = "application/vnd.github.machine-man-preview+json"
-    return uri, headers, body
-
-github.pre_request = change_app_header
+proxy = GithubCommentProxy(oauth)
 
 
 @app.route('/', methods=['GET'])
 def index():
-    if 'gh_token' in session:
-        if proxy.valid:
+    if 'ghid' not in session:
+        if 'ghid' in request.args:
+            session['ghid'] = request.args.get('ghid')
+        else:
+            # FIXME: ask user to pass ghid or raise misconfiguration error
+            abort(422)
+    try:
+        admin = Installation.get(Installation.ghid == session.get('ghid'))
+        if admin.active:
+            proxy.configure(admin.owner, admin.repo)
             return render_template('index.html')
-    return redirect(url_for('login'))
+        else:
+            # FIXME: inactive installation
+            abort(422)
+    except Installation.DoesNotExist:
+        # FIXME: invalid installation
+        abort(422)
 
 
+# FIXME: to be made POST with installation data sent in garbled text
 @app.route('/login', methods=['GET'])
 def login():
-    data = {"login": "vogxn", "repo": "vogxn.github.io"}
-    if data:  # request.get_json():
-        adminschema = AdminSchema()
-        admin = adminschema.load(data).data
-        proxy.connect(admin.login, admin.repo, github)
-        assert proxy.valid
-        return github.authorize(callback=url_for('authorize', _external=True))
-    else:
-        abort(422)
+    return proxy.client.authorize(callback=url_for('authorize', _external=True))
 
 
 @app.route('/logout')
@@ -77,7 +59,7 @@ def logout():
 
 @app.route('/authorize')
 def authorize():
-    resp = github.authorized_response()
+    resp = proxy.client.authorized_response()
     if resp is None or resp.get('access_token') is None:
         return 'Access denied: reason=%s error=%s resp=%s' % (
             request.args['error'],
@@ -109,9 +91,16 @@ def register():
         return render_template('register.html', form=rform)
 
 
+@app.route('/deregister', methods=['POST'])
+def deregister():
+    """ Uninstallation hook to inactivate the installation """
+    raise NotImplementedError
+
+
 @app.route('/comment', methods=['GET', 'POST'])
 def comment():
     if request.method == "GET":
+        # FIXME: how will /comment block until proxy is valid?
         return jsonify(proxy.get(title=request.args.get('title')))
     elif request.method == "POST":
         if 'gh_token' not in session:
@@ -127,9 +116,11 @@ def comment():
                 return err.messages
 
 
-@github.tokengetter
-def get_github_oauth_token():
-    return session.get('gh_token')
+@proxy.client.tokengetter
+def get_github_token(token=None):
+    if 'gh_token' in session:
+        return session.get('gh_token')
+    return None
 
 
 @app.before_request
