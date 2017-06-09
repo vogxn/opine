@@ -4,8 +4,8 @@ that provides a [shim](https://en.wikipedia.org/wiki/Shim_(computing)) to post
 comments from such blogs as comments to issues in the associated git
 repository.
 
-Flow
-====
+Userflows
+=========
 
 Admin
 -----
@@ -21,8 +21,8 @@ Commenter
 - opine.io posts comment text as issue comment body
 
 
-Design
-======
+REST API
+========
 
 When a user goes to a blog and wants to leave a comment, `/login` will redirect
 him to authenticate using his github credentials. 
@@ -50,7 +50,7 @@ Date: Mon, 05 Jun 2017 11:55:39 GMT
 ```
 
 Development
-==========
+===========
 
 You can run the app locally by setting up the python environment first and then
 starting a gunicorn server
