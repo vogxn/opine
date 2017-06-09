@@ -34,7 +34,7 @@ HTTP/1.1 POST /login
 Content-Type: application/json; charset=utf-8
 Date: Mon, 05 Jun 2017 11:52:49 GMT
 
-{"owner": <github-handle-of-owner-of-blog>, "repo": <github-repo-for-blog>", "title": "Page Title Of Blog Post"}
+{"ghid": <app-installation-id>}
 ```
 
 This creates an access token behind the scenes for the session.
@@ -46,44 +46,23 @@ HTTP/1.1 POST /comment
 Content-Type: application/json; charset=utf-8
 Date: Mon, 05 Jun 2017 11:55:39 GMT
 
-{"title": "Page Title Of Blog Post", "body": "my comment here"}
+{"body": "my comment here"}
 ```
 
-Quickstart
+Development
 ==========
 
-The server runs on localhost port 8080 with flask. Install requirements and start as follows:
+You can run the app locally by setting up the python environment first and then
+starting a gunicorn server
 
 ```
-$ pip install -r requirements.txt
-$ python app.py
+(virtualenv) ~$ python setup.py install
+(virtualenv) ~$ gunicorn opine:app --log-file -
+
 ```
 
+Enhancements
+============
 
-Flow 1:
-======
-- User is unauthorized
-  - save session data
-- Redirect to /login
-  - shortcode lookup => (installation_id, repo, owner)
-  - save to session data
-- Get OAuth Access Token
-- Redirect to /comment with comment data in body
-  - prepare github comment/issue
-  - POST comment/issue
-  - update counters in stats
-  - return full issue with comments JSON in response
-
-
-Database
-========
-
-users:
-| pk | installation_id | shortcode | repo | owner | active | created | updated |
-
-stats:
-| pk | installation_id | comments | updated |
-
-
-sessions:
-| pk | sid | active | expiry |
+- reCAPTCHA support
+- embedding in static site generators - hugo, jekyll etc
