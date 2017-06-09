@@ -102,7 +102,7 @@ class GithubCommentProxy(object):
             data=issue_json,
             format='json'
         )
-        assert res.status == 200
+        assert res.status in (200, 201)
         return res.get("number")
 
     def create(self, payload):
@@ -117,7 +117,7 @@ class GithubCommentProxy(object):
             data=payload,
             format='json'
         )
-        return res.status == 200
+        return res.status in (200, 201)
 
     def update(self):
         raise NotImplementedError

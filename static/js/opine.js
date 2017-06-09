@@ -1,5 +1,5 @@
 var endpoints = {
-  getComments: 'http://localhost:8080/comment'
+  getComments: 'http://localhost:8000/comment'
 };
 
 function loadComments() {

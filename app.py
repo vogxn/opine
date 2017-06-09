@@ -120,7 +120,7 @@ def comment():
                         if not created:
                             Stats.update(comments=Stats.comments + 1,
                                          updated=datetime.now())
-                            return redirect(url_for('index'))
+                return redirect(url_for('index'))
             except json.JSONDecodeError:
                 abort(422)
             except ValidationError as err:
@@ -144,7 +144,3 @@ def before_request():
 def after_request(response):
     g.db.close()
     return response
-
-
-if __name__ == '__main__':
-    app.run(port=8080)
