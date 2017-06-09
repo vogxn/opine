@@ -1,3 +1,4 @@
+import json
 import requests
 from slugify import slugify
 from werkzeug import security
@@ -9,6 +10,7 @@ SEARCH_URL = "/".join([API_URL, 'search/issues'])
 
 
 def change_app_header(uri, headers, body):
+    """ Add Accept header for preview features of Github apps API """
     headers["Accept"] = "application/vnd.github.machine-man-preview+json"
     return uri, headers, body
 
@@ -55,6 +57,8 @@ class GithubCommentProxy(object):
     def get(self, title):
         """ Get comments on issue with given title """
         num = self.search_head(title)
+        if not num:
+            return {}
         comment_resource = self.get_comment_resource(num)
         if self.valid:
             resp = self.client.get(comment_resource)
@@ -81,7 +85,7 @@ class GithubCommentProxy(object):
             assert resp.status == 200
             data = resp.data
         else:
-            resp = requests.get(SEARCH_URL, params=query)
+            resp = requests.get(SEARCH_URL, params=json.dumps(query))
             assert resp.status_code == 200
             data = resp.json()
         if data.get("total_count") == 0:
@@ -94,18 +98,20 @@ class GithubCommentProxy(object):
     def create_head(self, title):
         issue_json = {'title': slugify(title)}
         res = self.client.post(
-            'repos/%s/%s/issues'.format(self.owner, self.repo),
+            "repos/{}/{}/issues".format(self.owner, self.repo),
             data=issue_json,
             format='json'
         )
-        return res.status == 200
+        assert res.status == 200
+        return res.get("number")
 
     def create(self, payload):
+        """ Posts a comment to the issue associated with the post """
         cs = CommentSchema()
         comment, errors = cs.load(payload)  # TODO: handle errors
         issue_num = self.search_head(comment.title)
         if issue_num is None:
-            self.create_head_comment(comment.title)
+            issue_num = self.create_head(comment.title)
         res = self.client.post(
             self.get_comment_resource(issue_num),
             data=payload,

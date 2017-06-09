@@ -9,7 +9,7 @@ from marshmallow import ValidationError
 from datetime import datetime
 
 from settings import DEBUG, SECRET_KEY
-from models import database, Installation
+from models import database, Installation, Stats
 from proxy import GithubCommentProxy
 from forms import RegisterForm
 
@@ -108,8 +108,19 @@ def comment():
         else:
             try:
                 payload = request.get_json()
-                proxy.create(payload)
-                return redirect(url_for('index'))
+                app.logger.info("comment payload\n %s" % payload)
+                if proxy.create(payload):
+                    admin = Installation.get(Installation.ghid ==
+                                             session.get('ghid'))
+                    with database.transaction():
+                        stat, created = Stats.get_or_create(
+                            installation=admin,
+                            defaults={'updated': datetime.now(), 'comments': 0}
+                        )
+                        if not created:
+                            Stats.update(comments=Stats.comments + 1,
+                                         updated=datetime.now())
+                            return redirect(url_for('index'))
             except json.JSONDecodeError:
                 abort(422)
             except ValidationError as err:

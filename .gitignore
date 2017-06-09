@@ -1,4 +1,5 @@
 .env
 *.db
 .ropeproject/
+.vscode/
 __pycache__

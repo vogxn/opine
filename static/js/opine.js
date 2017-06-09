@@ -1,14 +1,16 @@
 var endpoints = {
-  getComments: 'http://localhost:8080/comment?title=slug-url-first-comment'
+  getComments: 'http://localhost:8080/comment'
 };
 
 function loadComments() {
   var commentList = $('.comments');
   commentList.empty();
 
-  $.getJSON(endpoints.getComments, function (data) {
-    commentList.append(data.map(jsonToComment))
-  });
+  $.getJSON(endpoints.getComments, { title: document.title })
+    .done(
+    function (data) {
+      commentList.append(data.map(jsonToComment))
+    });
 }
 
 function setupCommentForm() {
@@ -27,7 +29,7 @@ function setupCommentForm() {
       type: form.attr('method'),
       contentType: 'application/json; charset=utf8',
       dataType: 'json',
-      data: JSON.stringify({"title": "slug-url-first-comment", body:commentBody})
+      data: JSON.stringify({"title": document.title, body:commentBody})
     }).done(function () {
       loadComments();
       $('#comment-body').val('');
