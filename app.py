@@ -4,9 +4,11 @@ import logging
 from flask import Flask, redirect, url_for,\
     session, request, render_template, abort, flash, g, jsonify
 from flask_oauthlib.client import OAuth
-from flask_cors import CORS
+from flask_cors import cross_origin
 from marshmallow import ValidationError
 from datetime import datetime
+from peewee import OperationalError
+from werkzeug.local import LocalProxy
 
 from settings import DEBUG, SECRET_KEY
 from models import database, Installation, Stats
@@ -19,12 +21,34 @@ if DEBUG:
 app = Flask(__name__)
 app.debug = DEBUG
 app.secret_key = SECRET_KEY
-cors = CORS(app)
 oauth = OAuth(app)
 proxy = GithubCommentProxy(oauth)
 
 
+def get_db():
+    db = getattr('_database', None)
+    if db is None:
+        try:
+            database.connect()
+            db = g._database = database
+        except OperationalError as oex:
+            dblog = logging.getLogger("opine.db")
+            dblog.warn("database connect fails with %s" % oex)
+    return db
+
+
+@app.teardown_appcontext
+def teardown_db(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+
+db = LocalProxy(get_db)
+
+
 @app.route('/', methods=['GET'])
+@cross_origin(supports_credentials=True, automatic_options=True)
 def index():
     if 'ghid' not in session:
         if 'ghid' in request.args:
@@ -98,6 +122,7 @@ def deregister():
 
 
 @app.route('/comment', methods=['GET', 'POST'])
+@cross_origin(supports_credentials=True, automatic_options=True)
 def comment():
     if request.method == "GET":
         # FIXME: how will /comment block until proxy is valid?
@@ -132,15 +157,3 @@ def get_github_token(token=None):
     if 'gh_token' in session:
         return session.get('gh_token')
     return None
-
-
-@app.before_request
-def before_request():
-    g.db = database
-    g.db.connect()
-
-
-@app.after_request
-def after_request(response):
-    g.db.close()
-    return response

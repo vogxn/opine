@@ -37,4 +37,4 @@ class Stats(BaseModel):
 
 if __name__ == '__main__':
     database.connect()
-    database.create_tables([Installation, Stats])
+    database.create_tables([Installation, Stats], safe=True)
