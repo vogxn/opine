@@ -9,6 +9,7 @@ from marshmallow import ValidationError
 from datetime import datetime
 from peewee import OperationalError
 from werkzeug.local import LocalProxy
+from functools import wraps
 
 from settings import DEBUG, SECRET_KEY
 from models import database, Installation, Stats
@@ -25,29 +26,51 @@ oauth = OAuth(app)
 proxy = GithubCommentProxy(oauth)
 
 
+def override_origin(routing_func):
+    """ This decorator is used to override the default origin header set by
+    flask-cors. The default is wildcard (*). For each request we set the
+    header to the origin as identified by the installation during registration
+    """
+    @wraps(routing_func)
+    def wrapper(*args, **kwargs):
+        resp = routing_func(*args, **kwargs)
+        if 'ghid' not in session:
+            ghid = request.args.get('ghid')
+        else:
+            ghid = session.get('ghid')
+        if ghid is not None:
+            install = Installation.get(Installation.ghid == ghid)
+            resp.headers["Access-Control-Allow-Origin"] = install.origin
+        # return the regular wildcard response if 'ghid' is not supplied
+        return resp
+    return wrapper
+
+
 def get_db():
-    db = getattr('_database', None)
+    """ get_db() returns the db connection in the ApplicationContext """
+    db = getattr(g, '_database', None)
     if db is None:
         try:
             database.connect()
             db = g._database = database
         except OperationalError as oex:
             dblog = logging.getLogger("opine.db")
-            dblog.warn("database connect fails with %s" % oex)
+            dblog.warning("database connect fails with %s" % oex)
     return db
 
 
 @app.teardown_appcontext
 def teardown_db(exception):
+    """ teardown_db() will cleanup the database connection for each request/app context """
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
 
-
-db = LocalProxy(get_db)
+db = LocalProxy(get_db)  # werkzeug proxied local for database connectivity
 
 
 @app.route('/', methods=['GET'])
+@override_origin
 @cross_origin(supports_credentials=True, automatic_options=True)
 def index():
     if 'ghid' not in session:
@@ -55,6 +78,7 @@ def index():
             session['ghid'] = request.args.get('ghid')
         else:
             # FIXME: ask user to pass ghid or raise misconfiguration error
+            # TODO: needs errorhandler pages
             abort(422)
     try:
         admin = Installation.get(Installation.ghid == session.get('ghid'))
@@ -63,6 +87,7 @@ def index():
             return render_template('index.html')
         else:
             # FIXME: inactive installation
+            # TODO: needs errorhandler page for inactive installation
             abort(422)
     except Installation.DoesNotExist:
         # FIXME: invalid installation
@@ -122,6 +147,7 @@ def deregister():
 
 
 @app.route('/comment', methods=['GET', 'POST'])
+@override_origin
 @cross_origin(supports_credentials=True, automatic_options=True)
 def comment():
     if request.method == "GET":
