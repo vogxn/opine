@@ -183,7 +183,7 @@ def record_stats(install):
     with DB.atomic() as txn:
         stat, created = Stats.get_or_create(
             installation=install,
-            defaults={'updated': datetime.now(), 'comments': 0}
+            defaults={'updated': datetime.now(), 'comments': 1}
         )
         if not created:
             stat.updated = datetime.now()
