@@ -7,12 +7,12 @@ from flask_oauthlib.client import OAuth
 from flask_cors import cross_origin
 from marshmallow import ValidationError
 from datetime import datetime
-from peewee import OperationalError
+from peewee import OperationalError, IntegrityError
 from werkzeug.local import LocalProxy
 from functools import wraps
 
 from settings import DEBUG, SECRET_KEY
-from models import database, Installation, Stats
+from models import DB, Installation, Stats
 from proxy import GithubCommentProxy
 from forms import RegisterForm
 
@@ -51,8 +51,8 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         try:
-            database.connect()
-            db = g._database = database
+            DB.connect()
+            db = g._database = DB
         except OperationalError as oex:
             dblog = logging.getLogger("opine.db")
             dblog.warning("database connect fails with %s" % oex)
@@ -108,6 +108,7 @@ def logout():
 
 @app.route('/authorize')
 def authorize():
+    """ oauth authorize """
     resp = proxy.client.authorized_response()
     if resp is None or resp.get('access_token') is None:
         return 'Access denied: reason=%s error=%s resp=%s' % (
@@ -121,18 +122,23 @@ def authorize():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    # display register form
+    """ registration process after a successful app install """
     rform = RegisterForm()
     if request.method == "POST" and rform.validate_on_submit():
-        with database.transaction():
-            Installation.create(ghid=session.get('ghid'),
-                                owner=rform.login.data,
-                                repo=rform.repo.data,
-                                origin=rform.origin.data,
-                                active=True,
-                                created=datetime.now(),
-                                updated=datetime.now())
-        flash("Successfully Registered!")
+        try:
+            with DB.atomic() as txn:
+                Installation.create(ghid=session.get('ghid'),
+                                    owner=rform.login.data,
+                                    repo=rform.repo.data,
+                                    origin=rform.origin.data,
+                                    active=True,
+                                    created=datetime.now(),
+                                    updated=datetime.now())
+        except IntegrityError:
+            flash("Failed registration!")
+            abort(422)
+        else:
+            flash("Successfully Registered!")
         return redirect(url_for('index'))
     else:
         installation_id = request.args.get('installation_id')
@@ -150,8 +156,8 @@ def deregister():
 @override_origin
 @cross_origin(supports_credentials=True, automatic_options=True)
 def comment():
+    """ /comment retrieves or posts comments from/to github issues """
     if request.method == "GET":
-        # FIXME: how will /comment block until proxy is valid?
         return jsonify(proxy.get(title=request.args.get('title')))
     elif request.method == "POST":
         if 'gh_token' not in session:
@@ -159,18 +165,12 @@ def comment():
         else:
             try:
                 payload = request.get_json()
-                app.logger.info("comment payload\n %s" % payload)
+                app.logger.debug("comment payload\n %s" % payload)
                 if proxy.create(payload):
+                    app.logger.info("comment posted successfully")
                     admin = Installation.get(Installation.ghid ==
                                              session.get('ghid'))
-                    with database.transaction():
-                        stat, created = Stats.get_or_create(
-                            installation=admin,
-                            defaults={'updated': datetime.now(), 'comments': 0}
-                        )
-                        if not created:
-                            Stats.update(comments=Stats.comments + 1,
-                                         updated=datetime.now())
+                    record_stats(admin)
                 return redirect(url_for('index'))
             except json.JSONDecodeError:
                 abort(422)
@@ -178,8 +178,23 @@ def comment():
                 return err.messages
 
 
+def record_stats(install):
+    """ increment counters for comments in the installation """
+    with DB.atomic() as txn:
+        stat, created = Stats.get_or_create(
+            installation=install,
+            defaults={'updated': datetime.now(), 'comments': 0}
+        )
+        if not created:
+            stat.updated = datetime.now()
+            stat.comments += 1
+            with DB.atomic() as innertxn:
+                stat.save()
+
+
 @proxy.client.tokengetter
 def get_github_token(token=None):
+    """ github token getter """
     if 'gh_token' in session:
         return session.get('gh_token')
     return None
